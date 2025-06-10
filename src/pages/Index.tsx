@@ -7,28 +7,91 @@ import PhotoUpload from '@/components/PhotoUpload';
 import LoadingScreen from '@/components/LoadingScreen';
 import ResultScreen from '@/components/ResultScreen';
 import Footer from '@/components/Footer';
+import { useSessionManager } from '@/hooks/useSessionManager';
+import { toast } from '@/hooks/use-toast';
 
 const Index = () => {
   const [currentStep, setCurrentStep] = useState<'upload' | 'loading' | 'result'>('upload');
   const [photo1, setPhoto1] = useState<File | null>(null);
   const [photo2, setPhoto2] = useState<File | null>(null);
-  // Mock da variável de controle - primeira geração gratuita
-  const [isFirstGeneration, setIsFirstGeneration] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
+  
+  const {
+    sessionId,
+    hasExistingAttempt,
+    isLoading: sessionLoading,
+    uploadImage,
+    saveAttempt,
+    callWebhook
+  } = useSessionManager();
 
-  const handleGenerateBaby = () => {
-    if (photo1 && photo2) {
-      if (isFirstGeneration) {
-        // Primeira geração gratuita - vai direto para loading
-        setCurrentStep('loading');
-        setIsFirstGeneration(false); // Próxima vez será paga
-        // Simulate AI processing time
-        setTimeout(() => {
-          setCurrentStep('result');
-        }, 3000);
-      } else {
-        // Gerações subsequentes - redireciona para Stripe Checkout
-        window.open('https://buy.stripe.com/5kQ6oI0j1cvF2Fj2hW9EI01', '_blank');
+  const handleGenerateBaby = async () => {
+    if (!photo1 || !photo2) {
+      toast({
+        title: "Erro",
+        description: "Por favor, envie as duas fotos primeiro.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Se já existe tentativa, redirecionar para Stripe
+    if (hasExistingAttempt) {
+      toast({
+        title: "Nova geração",
+        description: "Redirecionando para pagamento...",
+      });
+      window.open('https://buy.stripe.com/5kQ6oI0j1cvF2Fj2hW9EI01', '_blank');
+      return;
+    }
+
+    // Primeira geração gratuita - processar
+    try {
+      setIsGenerating(true);
+      toast({
+        title: "Processando",
+        description: "Fazendo upload das imagens...",
+      });
+
+      // Upload das imagens
+      const image1Url = await uploadImage(photo1, 'image_1');
+      const image2Url = await uploadImage(photo2, 'image_2');
+
+      if (!image1Url || !image2Url) {
+        throw new Error('Falha no upload das imagens');
       }
+
+      // Salvar tentativa no banco
+      const saved = await saveAttempt(image1Url, image2Url);
+      if (!saved) {
+        throw new Error('Falha ao salvar tentativa');
+      }
+
+      // Chamar webhook
+      await callWebhook(image1Url, image2Url);
+
+      toast({
+        title: "Sucesso",
+        description: "Imagens enviadas! Gerando seu bebê reborn...",
+      });
+
+      // Ir para tela de loading
+      setCurrentStep('loading');
+
+      // Simular processamento de IA
+      setTimeout(() => {
+        setCurrentStep('result');
+      }, 3000);
+
+    } catch (error) {
+      console.error('Erro na geração:', error);
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao processar sua solicitação. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -37,7 +100,18 @@ const Index = () => {
     window.open('https://buy.stripe.com/8x2cN61n553d5Rv9Ko9EI00', '_blank');
   };
 
-  const canGenerate = photo1 && photo2;
+  const canGenerate = photo1 && photo2 && !isGenerating;
+
+  if (sessionLoading) {
+    return (
+      <div className="min-h-screen gradient-pastel flex items-center justify-center">
+        <div className="text-center">
+          <Heart className="w-12 h-12 text-primary fill-current animate-pulse mx-auto mb-4" />
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (currentStep === 'loading') {
     return <LoadingScreen />;
@@ -47,7 +121,20 @@ const Index = () => {
     return (
       <div>
         <Header />
-        <ResultScreen onOrderClick={handleOrderClick} />
+        <ResultScreen 
+          onOrderClick={handleOrderClick}
+          onTryAgain={() => {
+            if (hasExistingAttempt) {
+              // Redirecionar para Stripe para nova tentativa
+              window.open('https://buy.stripe.com/5kQ6oI0j1cvF2Fj2hW9EI01', '_blank');
+            } else {
+              // Voltar para o início
+              setCurrentStep('upload');
+              setPhoto1(null);
+              setPhoto2(null);
+            }
+          }}
+        />
         <Footer />
       </div>
     );
@@ -73,7 +160,7 @@ const Index = () => {
             <div className="mb-8 animate-fade-in">
               <div className="inline-flex items-center gap-2 bg-accent/30 px-4 py-2 rounded-full text-sm font-medium text-accent-foreground mb-6">
                 <Sparkles className="w-4 h-4" />
-                {isFirstGeneration ? "Primeira Geração Grátis!" : "Tecnologia + Amor = Magia"}
+                {!hasExistingAttempt ? "Primeira Geração Grátis!" : "Tecnologia + Amor = Magia"}
               </div>
               
               <h1 className="text-5xl md:text-6xl font-bold text-gradient mb-6 leading-tight">
@@ -82,8 +169,16 @@ const Index = () => {
               
               <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
                 Envie duas fotos e veja o rostinho do bebê criado pela nossa inteligência artificial. 
-                {isFirstGeneration ? " Sua primeira geração é gratuita! ✨" : " Uma experiência única e emocionante! ✨"}
+                {!hasExistingAttempt ? " Sua primeira geração é gratuita! ✨" : " Uma experiência única e emocionante! ✨"}
               </p>
+
+              {hasExistingAttempt && (
+                <div className="bg-accent/20 border border-accent/30 rounded-lg p-4 mb-6 max-w-md mx-auto">
+                  <p className="text-sm text-muted-foreground">
+                    Você já utilizou sua geração gratuita. Próximas gerações custam R$ 9,90.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-center mb-12">
@@ -136,20 +231,22 @@ const Index = () => {
                 `}
               >
                 <Heart className="w-6 h-6 mr-3 fill-current" />
-                {canGenerate 
-                  ? (isFirstGeneration ? 'Gerar Bebê Reborn (Grátis)' : 'Gerar Bebê Reborn (Pago)')
-                  : 'Envie as duas fotos primeiro'
+                {isGenerating 
+                  ? 'Processando...'
+                  : canGenerate 
+                    ? (!hasExistingAttempt ? 'Gerar Bebê Reborn (Grátis)' : 'Gerar Bebê Reborn (R$ 9,90)')
+                    : 'Envie as duas fotos primeiro'
                 }
                 <Sparkles className="w-6 h-6 ml-3" />
               </Button>
               
-              {!canGenerate && (
+              {!canGenerate && !isGenerating && (
                 <p className="text-sm text-muted-foreground mt-4">
                   Você precisa enviar duas fotos para continuar ✨
                 </p>
               )}
 
-              {!isFirstGeneration && canGenerate && (
+              {hasExistingAttempt && canGenerate && (
                 <p className="text-sm text-muted-foreground mt-4">
                   Próximas gerações custam R$ 9,90 ✨
                 </p>

@@ -2,13 +2,14 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Heart, Star, Gift } from 'lucide-react';
+import { Heart, Star, Gift, RefreshCw } from 'lucide-react';
 
 interface ResultScreenProps {
   onOrderClick: () => void;
+  onTryAgain?: () => void;
 }
 
-const ResultScreen: React.FC<ResultScreenProps> = ({ onOrderClick }) => {
+const ResultScreen: React.FC<ResultScreenProps> = ({ onOrderClick, onTryAgain }) => {
   const babyNames = ['Luna', 'Sofia', 'Maya', 'Aurora', 'Isabella', 'Valentina', 'Gabriel', 'Miguel', 'Lorenzo'];
   const randomName = babyNames[Math.floor(Math.random() * babyNames.length)];
 
@@ -42,15 +43,27 @@ const ResultScreen: React.FC<ResultScreenProps> = ({ onOrderClick }) => {
               </CardContent>
             </Card>
             
-            <div className="text-center mt-4">
+            <div className="text-center mt-6 space-y-3">
               <Button 
                 size="lg" 
-                className="bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-primary-foreground font-semibold px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-primary-foreground font-semibold px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
                 onClick={onOrderClick}
               >
                 <Heart className="w-5 h-5 mr-2 fill-current" />
                 Quero meu Bebê Reborn Real
               </Button>
+
+              {onTryAgain && (
+                <Button 
+                  variant="outline"
+                  size="lg" 
+                  className="w-full border-2 border-primary/30 hover:bg-primary/10 font-semibold px-8 py-3 rounded-full transition-all duration-300"
+                  onClick={onTryAgain}
+                >
+                  <RefreshCw className="w-5 h-5 mr-2" />
+                  Tentar Novamente
+                </Button>
+              )}
             </div>
           </div>
 
