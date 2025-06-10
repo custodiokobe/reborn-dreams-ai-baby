@@ -12,19 +12,29 @@ const Index = () => {
   const [currentStep, setCurrentStep] = useState<'upload' | 'loading' | 'result'>('upload');
   const [photo1, setPhoto1] = useState<File | null>(null);
   const [photo2, setPhoto2] = useState<File | null>(null);
+  // Mock da variável de controle - primeira geração gratuita
+  const [isFirstGeneration, setIsFirstGeneration] = useState(true);
 
   const handleGenerateBaby = () => {
     if (photo1 && photo2) {
-      setCurrentStep('loading');
-      // Simulate AI processing time
-      setTimeout(() => {
-        setCurrentStep('result');
-      }, 3000);
+      if (isFirstGeneration) {
+        // Primeira geração gratuita - vai direto para loading
+        setCurrentStep('loading');
+        setIsFirstGeneration(false); // Próxima vez será paga
+        // Simulate AI processing time
+        setTimeout(() => {
+          setCurrentStep('result');
+        }, 3000);
+      } else {
+        // Gerações subsequentes - redireciona para Stripe Checkout
+        window.open('https://buy.stripe.com/5kQ6oI0j1cvF2Fj2hW9EI01', '_blank');
+      }
     }
   };
 
   const handleOrderClick = () => {
-    alert('Funcionalidade será implementada em breve! 💕');
+    // Checkout para comprar o bebê reborn físico
+    window.open('https://buy.stripe.com/8x2cN61n553d5Rv9Ko9EI00', '_blank');
   };
 
   const canGenerate = photo1 && photo2;
@@ -63,7 +73,7 @@ const Index = () => {
             <div className="mb-8 animate-fade-in">
               <div className="inline-flex items-center gap-2 bg-accent/30 px-4 py-2 rounded-full text-sm font-medium text-accent-foreground mb-6">
                 <Sparkles className="w-4 h-4" />
-                Tecnologia + Amor = Magia
+                {isFirstGeneration ? "Primeira Geração Grátis!" : "Tecnologia + Amor = Magia"}
               </div>
               
               <h1 className="text-5xl md:text-6xl font-bold text-gradient mb-6 leading-tight">
@@ -72,7 +82,7 @@ const Index = () => {
               
               <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
                 Envie duas fotos e veja o rostinho do bebê criado pela nossa inteligência artificial. 
-                Uma experiência única e emocionante! ✨
+                {isFirstGeneration ? " Sua primeira geração é gratuita! ✨" : " Uma experiência única e emocionante! ✨"}
               </p>
             </div>
 
@@ -126,13 +136,22 @@ const Index = () => {
                 `}
               >
                 <Heart className="w-6 h-6 mr-3 fill-current" />
-                {canGenerate ? 'Gerar Bebê Reborn' : 'Envie as duas fotos primeiro'}
+                {canGenerate 
+                  ? (isFirstGeneration ? 'Gerar Bebê Reborn (Grátis)' : 'Gerar Bebê Reborn (Pago)')
+                  : 'Envie as duas fotos primeiro'
+                }
                 <Sparkles className="w-6 h-6 ml-3" />
               </Button>
               
               {!canGenerate && (
                 <p className="text-sm text-muted-foreground mt-4">
                   Você precisa enviar duas fotos para continuar ✨
+                </p>
+              )}
+
+              {!isFirstGeneration && canGenerate && (
+                <p className="text-sm text-muted-foreground mt-4">
+                  Próximas gerações custam R$ 9,90 ✨
                 </p>
               )}
             </div>
