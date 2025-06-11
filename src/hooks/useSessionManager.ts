@@ -109,6 +109,7 @@ export const useSessionManager = () => {
   // Chamar webhook do n8n - PRODUÇÃO
   const callWebhook = async (image1Url: string, image2Url: string) => {
     try {
+      console.log('Chamando webhook com sessionId:', sessionId);
       const response = await fetch('https://primary-production-4dd0.up.railway.app/webhook/generate baby', {
         method: 'POST',
         headers: {
@@ -122,31 +123,101 @@ export const useSessionManager = () => {
       });
 
       console.log('Webhook chamado:', response.status);
+      return response.ok;
     } catch (error) {
       console.error('Erro ao chamar webhook:', error);
+      return false;
     }
   };
 
-  // Verificar se existe imagem gerada na tabela baby_ai
-  const checkGeneratedImage = async (): Promise<string | null> => {
-    try {
-      const { data, error } = await supabase
-        .from('baby_ai')
-        .select('image_url')
-        .eq('sessionId', sessionId)
-        .limit(1)
-        .single();
+  // Verificar se existe imagem gerada na tabela baby_ai usando realtime
+  const startPollingForGeneratedImage = (): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      console.log('Iniciando polling para sessionId:', sessionId);
+      
+      // Primeiro, verificar se já existe uma imagem
+      const checkExistingImage = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('baby_ai')
+            .select('image_url')
+            .eq('sessionId', sessionId)
+            .single();
 
-      if (error) {
-        console.log('Nenhuma imagem gerada ainda:', error);
-        return null;
-      }
+          if (!error && data?.image_url) {
+            console.log('Imagem já existe:', data.image_url);
+            resolve(data.image_url);
+            return true;
+          }
+        } catch (error) {
+          console.log('Nenhuma imagem existente encontrada');
+        }
+        return false;
+      };
 
-      return data?.image_url || null;
-    } catch (error) {
-      console.error('Erro ao verificar imagem gerada:', error);
-      return null;
-    }
+      // Verificar se já existe
+      checkExistingImage().then(exists => {
+        if (exists) return;
+
+        // Se não existe, configurar realtime subscription
+        const channel = supabase
+          .channel('baby_ai_changes')
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'baby_ai',
+              filter: `sessionId=eq.${sessionId}`
+            },
+            (payload) => {
+              console.log('Nova imagem detectada via realtime:', payload);
+              const imageUrl = payload.new?.image_url;
+              if (imageUrl) {
+                console.log('Resolvendo com imagem:', imageUrl);
+                channel.unsubscribe();
+                resolve(imageUrl);
+              }
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'baby_ai',
+              filter: `sessionId=eq.${sessionId}`
+            },
+            (payload) => {
+              console.log('Imagem atualizada via realtime:', payload);
+              const imageUrl = payload.new?.image_url;
+              if (imageUrl) {
+                console.log('Resolvendo com imagem atualizada:', imageUrl);
+                channel.unsubscribe();
+                resolve(imageUrl);
+              }
+            }
+          )
+          .subscribe();
+
+        // Fallback: polling manual a cada 5 segundos
+        const pollInterval = setInterval(async () => {
+          console.log('Verificação manual de imagem...');
+          const hasImage = await checkExistingImage();
+          if (hasImage) {
+            clearInterval(pollInterval);
+            channel.unsubscribe();
+          }
+        }, 5000);
+
+        // Timeout após 5 minutos
+        setTimeout(() => {
+          clearInterval(pollInterval);
+          channel.unsubscribe();
+          reject(new Error('Timeout: Imagem não foi gerada em 5 minutos'));
+        }, 300000);
+      });
+    });
   };
 
   // Resetar sessão (para casos específicos)
@@ -164,7 +235,7 @@ export const useSessionManager = () => {
     uploadImage,
     saveAttempt,
     callWebhook,
-    checkGeneratedImage,
+    startPollingForGeneratedImage,
     resetSession,
     checkExistingAttempt: () => checkExistingAttempt(sessionId)
   };

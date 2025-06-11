@@ -1,6 +1,5 @@
 
 import React, { useEffect, useState } from 'react';
-import { Heart } from 'lucide-react';
 import { useSessionManager } from '@/hooks/useSessionManager';
 
 interface LoadingScreenProps {
@@ -8,7 +7,7 @@ interface LoadingScreenProps {
 }
 
 const LoadingScreen: React.FC<LoadingScreenProps> = ({ onImageGenerated }) => {
-  const { checkGeneratedImage } = useSessionManager();
+  const { startPollingForGeneratedImage } = useSessionManager();
   const [dots, setDots] = useState(1);
 
   useEffect(() => {
@@ -17,21 +16,25 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({ onImageGenerated }) => {
       setDots(prev => prev >= 3 ? 1 : prev + 1);
     }, 500);
 
-    // Verificar imagem gerada a cada 3 segundos
-    const checkInterval = setInterval(async () => {
-      console.log('Verificando se a imagem foi gerada...');
-      const imageUrl = await checkGeneratedImage();
-      if (imageUrl) {
-        console.log('Imagem encontrada:', imageUrl);
+    // Iniciar polling para imagem gerada
+    const startPolling = async () => {
+      try {
+        console.log('Iniciando polling para imagem gerada...');
+        const imageUrl = await startPollingForGeneratedImage();
+        console.log('Imagem gerada recebida:', imageUrl);
         onImageGenerated(imageUrl);
+      } catch (error) {
+        console.error('Erro no polling:', error);
+        // Aqui você pode adicionar um toast de erro se necessário
       }
-    }, 3000);
+    };
+
+    startPolling();
 
     return () => {
       clearInterval(dotsInterval);
-      clearInterval(checkInterval);
     };
-  }, [checkGeneratedImage, onImageGenerated]);
+  }, [startPollingForGeneratedImage, onImageGenerated]);
 
   return (
     <div className="min-h-screen gradient-pastel flex items-center justify-center relative overflow-hidden">
