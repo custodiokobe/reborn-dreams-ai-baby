@@ -12,10 +12,13 @@ const Header = () => {
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <div className="relative">
-              <Heart className="w-8 h-8 text-primary fill-current" />
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-accent rounded-full animate-pulse"></div>
+              <img 
+                src="/lovable-uploads/6948e8a3-4697-4eb9-a643-c604ee5f25ef.png" 
+                alt="Revela Baby Logo" 
+                className="w-8 h-8"
+              />
             </div>
-            <h1 className="text-2xl font-bold text-gradient">Reborn Baby AI</h1>
+            <h1 className="text-2xl font-bold text-gradient">Revela Baby</h1>
           </Link>
           
           <nav className="hidden md:flex items-center gap-6">

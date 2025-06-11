@@ -7,9 +7,10 @@ import { Heart, Star, Gift, RefreshCw } from 'lucide-react';
 interface ResultScreenProps {
   onOrderClick: () => void;
   onTryAgain?: () => void;
+  generatedImageUrl?: string;
 }
 
-const ResultScreen: React.FC<ResultScreenProps> = ({ onOrderClick, onTryAgain }) => {
+const ResultScreen: React.FC<ResultScreenProps> = ({ onOrderClick, onTryAgain, generatedImageUrl }) => {
   const babyNames = ['Luna', 'Sofia', 'Maya', 'Aurora', 'Isabella', 'Valentina', 'Gabriel', 'Miguel', 'Lorenzo'];
   const randomName = babyNames[Math.floor(Math.random() * babyNames.length)];
 
@@ -31,11 +32,19 @@ const ResultScreen: React.FC<ResultScreenProps> = ({ onOrderClick, onTryAgain })
             <Card className="overflow-hidden border-2 border-primary/20 shadow-xl">
               <CardContent className="p-0">
                 <div className="aspect-square bg-gradient-to-br from-accent/20 to-secondary/30 flex items-center justify-center relative">
-                  <img 
-                    src="https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=400&h=400&fit=crop&crop=center"
-                    alt={`Baby ${randomName}`}
-                    className="w-full h-full object-cover"
-                  />
+                  {generatedImageUrl ? (
+                    <img 
+                      src={generatedImageUrl}
+                      alt={`Baby ${randomName}`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <img 
+                      src="https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=400&h=400&fit=crop&crop=center"
+                      alt={`Baby ${randomName}`}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                   <div className="absolute top-4 right-4 bg-primary/90 text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">
                     Novo! ✨
                   </div>

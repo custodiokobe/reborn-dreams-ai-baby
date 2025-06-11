@@ -106,10 +106,10 @@ export const useSessionManager = () => {
     }
   };
 
-  // Chamar webhook do n8n
+  // Chamar webhook do n8n - PRODUÇÃO
   const callWebhook = async (image1Url: string, image2Url: string) => {
     try {
-      const response = await fetch('https://primary-production-4dd0.up.railway.app/webhook-test/generate baby', {
+      const response = await fetch('https://primary-production-4dd0.up.railway.app/webhook/generate baby', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -124,6 +124,28 @@ export const useSessionManager = () => {
       console.log('Webhook chamado:', response.status);
     } catch (error) {
       console.error('Erro ao chamar webhook:', error);
+    }
+  };
+
+  // Verificar se existe imagem gerada na tabela baby_ai
+  const checkGeneratedImage = async (): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('baby_ai')
+        .select('image_url')
+        .eq('sessionId', sessionId)
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.log('Nenhuma imagem gerada ainda:', error);
+        return null;
+      }
+
+      return data?.image_url || null;
+    } catch (error) {
+      console.error('Erro ao verificar imagem gerada:', error);
+      return null;
     }
   };
 
@@ -142,6 +164,7 @@ export const useSessionManager = () => {
     uploadImage,
     saveAttempt,
     callWebhook,
+    checkGeneratedImage,
     resetSession,
     checkExistingAttempt: () => checkExistingAttempt(sessionId)
   };

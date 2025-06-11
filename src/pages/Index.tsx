@@ -15,6 +15,7 @@ const Index = () => {
   const [photo1, setPhoto1] = useState<File | null>(null);
   const [photo2, setPhoto2] = useState<File | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string>('');
   
   const {
     sessionId,
@@ -24,6 +25,12 @@ const Index = () => {
     saveAttempt,
     callWebhook
   } = useSessionManager();
+
+  const handleImageGenerated = (imageUrl: string) => {
+    console.log('Imagem gerada recebida:', imageUrl);
+    setGeneratedImageUrl(imageUrl);
+    setCurrentStep('result');
+  };
 
   const handleGenerateBaby = async () => {
     if (!photo1 || !photo2) {
@@ -78,11 +85,6 @@ const Index = () => {
       // Ir para tela de loading
       setCurrentStep('loading');
 
-      // Simular processamento de IA
-      setTimeout(() => {
-        setCurrentStep('result');
-      }, 3000);
-
     } catch (error) {
       console.error('Erro na geração:', error);
       toast({
@@ -106,7 +108,11 @@ const Index = () => {
     return (
       <div className="min-h-screen gradient-pastel flex items-center justify-center">
         <div className="text-center">
-          <Heart className="w-12 h-12 text-primary fill-current animate-pulse mx-auto mb-4" />
+          <img 
+            src="/lovable-uploads/6948e8a3-4697-4eb9-a643-c604ee5f25ef.png" 
+            alt="Revela Baby" 
+            className="w-12 h-12 animate-pulse mx-auto mb-4"
+          />
           <p className="text-muted-foreground">Carregando...</p>
         </div>
       </div>
@@ -114,7 +120,7 @@ const Index = () => {
   }
 
   if (currentStep === 'loading') {
-    return <LoadingScreen />;
+    return <LoadingScreen onImageGenerated={handleImageGenerated} />;
   }
 
   if (currentStep === 'result') {
@@ -122,6 +128,7 @@ const Index = () => {
       <div>
         <Header />
         <ResultScreen 
+          generatedImageUrl={generatedImageUrl}
           onOrderClick={handleOrderClick}
           onTryAgain={() => {
             if (hasExistingAttempt) {
@@ -132,6 +139,7 @@ const Index = () => {
               setCurrentStep('upload');
               setPhoto1(null);
               setPhoto2(null);
+              setGeneratedImageUrl('');
             }
           }}
         />

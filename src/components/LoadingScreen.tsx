@@ -1,8 +1,38 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Heart } from 'lucide-react';
+import { useSessionManager } from '@/hooks/useSessionManager';
 
-const LoadingScreen = () => {
+interface LoadingScreenProps {
+  onImageGenerated: (imageUrl: string) => void;
+}
+
+const LoadingScreen: React.FC<LoadingScreenProps> = ({ onImageGenerated }) => {
+  const { checkGeneratedImage } = useSessionManager();
+  const [dots, setDots] = useState(1);
+
+  useEffect(() => {
+    // Animação dos pontos
+    const dotsInterval = setInterval(() => {
+      setDots(prev => prev >= 3 ? 1 : prev + 1);
+    }, 500);
+
+    // Verificar imagem gerada a cada 3 segundos
+    const checkInterval = setInterval(async () => {
+      console.log('Verificando se a imagem foi gerada...');
+      const imageUrl = await checkGeneratedImage();
+      if (imageUrl) {
+        console.log('Imagem encontrada:', imageUrl);
+        onImageGenerated(imageUrl);
+      }
+    }, 3000);
+
+    return () => {
+      clearInterval(dotsInterval);
+      clearInterval(checkInterval);
+    };
+  }, [checkGeneratedImage, onImageGenerated]);
+
   return (
     <div className="min-h-screen gradient-pastel flex items-center justify-center relative overflow-hidden">
       {/* Background decorations */}
@@ -16,13 +46,17 @@ const LoadingScreen = () => {
       <div className="text-center z-10 max-w-md mx-auto px-6">
         <div className="mb-8">
           <div className="relative inline-block">
-            <Heart className="w-20 h-20 text-primary fill-current pulse-soft" />
+            <img 
+              src="/lovable-uploads/6948e8a3-4697-4eb9-a643-c604ee5f25ef.png" 
+              alt="Revela Baby" 
+              className="w-20 h-20 pulse-soft"
+            />
             <div className="absolute -top-2 -right-2 w-6 h-6 bg-accent rounded-full animate-ping"></div>
           </div>
         </div>
         
         <h2 className="text-3xl font-bold text-gradient mb-4">
-          Criando um bebê cheio de amor para você...
+          Criando um bebê cheio de amor para você{'.'.repeat(dots)}
         </h2>
         
         <p className="text-muted-foreground mb-8">
