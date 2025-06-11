@@ -20,10 +20,14 @@ const Index = () => {
   const {
     sessionId,
     hasExistingAttempt,
+    userCredits,
     isLoading: sessionLoading,
+    canGenerate,
+    consumeCredit,
     uploadImage,
     saveAttempt,
-    callWebhook
+    callWebhook,
+    saveWishlistRequest
   } = useSessionManager();
 
   const handleImageGenerated = (imageUrl: string) => {
@@ -42,23 +46,36 @@ const Index = () => {
       return;
     }
 
-    // Se já existe tentativa, redirecionar para Stripe
-    if (hasExistingAttempt) {
+    // Verificar se pode gerar
+    if (!canGenerate()) {
+      // Redirecionar para compra de créditos
       toast({
-        title: "Nova geração",
-        description: "Redirecionando para pagamento...",
+        title: "Créditos necessários",
+        description: "Redirecionando para compra de créditos...",
       });
       window.open('https://buy.stripe.com/5kQ6oI0j1cvF2Fj2hW9EI01', '_blank');
       return;
     }
 
-    // Primeira geração gratuita - processar
     try {
       setIsGenerating(true);
       toast({
         title: "Processando",
         description: "Fazendo upload das imagens...",
       });
+
+      // Se não é primeira tentativa, consumir crédito
+      if (hasExistingAttempt) {
+        const creditConsumed = await consumeCredit();
+        if (!creditConsumed) {
+          toast({
+            title: "Erro",
+            description: "Não foi possível consumir o crédito. Tente novamente.",
+            variant: "destructive"
+          });
+          return;
+        }
+      }
 
       // Upload das imagens
       const image1Url = await uploadImage(photo1, 'image_1');
@@ -68,10 +85,12 @@ const Index = () => {
         throw new Error('Falha no upload das imagens');
       }
 
-      // Salvar tentativa no banco
-      const saved = await saveAttempt(image1Url, image2Url);
-      if (!saved) {
-        throw new Error('Falha ao salvar tentativa');
+      // Salvar tentativa no banco (se for primeira vez)
+      if (!hasExistingAttempt) {
+        const saved = await saveAttempt(image1Url, image2Url);
+        if (!saved) {
+          throw new Error('Falha ao salvar tentativa');
+        }
       }
 
       // Chamar webhook
@@ -100,14 +119,9 @@ const Index = () => {
     }
   };
 
-  const handleOrderClick = () => {
-    // Checkout para comprar o bebê reborn físico
-    window.open('https://buy.stripe.com/8x2cN61n553d5Rv9Ko9EI00', '_blank');
-  };
-
   const handleTryAgain = () => {
-    if (hasExistingAttempt) {
-      // Redirecionar para Stripe para nova tentativa
+    if (!canGenerate()) {
+      // Redirecionar para compra de créditos
       window.open('https://buy.stripe.com/5kQ6oI0j1cvF2Fj2hW9EI01', '_blank');
     } else {
       // Voltar para o início
@@ -143,8 +157,8 @@ const Index = () => {
         <Header />
         <ResultScreen 
           generatedImageUrl={generatedImageUrl}
-          onOrderClick={handleOrderClick}
           onTryAgain={handleTryAgain}
+          onSaveWishlistRequest={saveWishlistRequest}
         />
         <Footer />
       </div>
@@ -154,12 +168,17 @@ const Index = () => {
   return (
     <div className="min-h-screen gradient-pastel">
       <Header />
-      <HeroSection hasExistingAttempt={hasExistingAttempt} />
+      <HeroSection 
+        hasExistingAttempt={hasExistingAttempt} 
+        userCredits={userCredits}
+      />
       <UploadSection 
         photo1={photo1}
         photo2={photo2}
         isGenerating={isGenerating}
         hasExistingAttempt={hasExistingAttempt}
+        userCredits={userCredits}
+        canGenerate={canGenerate()}
         onPhoto1Select={setPhoto1}
         onPhoto2Select={setPhoto2}
         onGenerateBaby={handleGenerateBaby}

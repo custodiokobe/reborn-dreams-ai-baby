@@ -11,9 +11,18 @@ export interface BabyAttempt {
   created_at: string;
 }
 
+export interface UserCredits {
+  id: string;
+  session_id: string;
+  credits: number;
+  updated_at: string;
+  created_at: string;
+}
+
 export const useSessionManager = () => {
   const [sessionId, setSessionId] = useState<string>('');
   const [hasExistingAttempt, setHasExistingAttempt] = useState<boolean>(false);
+  const [userCredits, setUserCredits] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Gerar ou recuperar session_id do localStorage
@@ -27,12 +36,12 @@ export const useSessionManager = () => {
     
     setSessionId(storedSessionId);
     checkExistingAttempt(storedSessionId);
+    checkUserCredits(storedSessionId);
   }, []);
 
   // Verificar se já existe uma tentativa para esta sessão
   const checkExistingAttempt = async (sessionId: string) => {
     try {
-      setIsLoading(true);
       const { data, error } = await supabase
         .from('baby_attempts')
         .select('*')
@@ -49,9 +58,71 @@ export const useSessionManager = () => {
     } catch (error) {
       console.error('Erro na verificação de sessão:', error);
       setHasExistingAttempt(false);
+    }
+  };
+
+  // Verificar créditos do usuário
+  const checkUserCredits = async (sessionId: string) => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('user_credits')
+        .select('credits')
+        .eq('session_id', sessionId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Erro ao verificar créditos:', error);
+        setUserCredits(0);
+        return;
+      }
+
+      setUserCredits(data?.credits || 0);
+    } catch (error) {
+      console.error('Erro na verificação de créditos:', error);
+      setUserCredits(0);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Consumir 1 crédito
+  const consumeCredit = async (): Promise<boolean> => {
+    try {
+      // Primeiro, verificar se tem créditos
+      const { data: currentCredits, error: fetchError } = await supabase
+        .from('user_credits')
+        .select('credits')
+        .eq('session_id', sessionId)
+        .single();
+
+      if (fetchError || !currentCredits || currentCredits.credits <= 0) {
+        return false;
+      }
+
+      // Subtrair 1 crédito
+      const { error: updateError } = await supabase
+        .from('user_credits')
+        .update({ credits: currentCredits.credits - 1 })
+        .eq('session_id', sessionId);
+
+      if (updateError) {
+        console.error('Erro ao consumir crédito:', updateError);
+        return false;
+      }
+
+      // Atualizar estado local
+      setUserCredits(currentCredits.credits - 1);
+      return true;
+    } catch (error) {
+      console.error('Erro ao consumir crédito:', error);
+      return false;
+    }
+  };
+
+  // Verificar se pode gerar (primeira vez gratuita ou tem créditos)
+  const canGenerate = (): boolean => {
+    return !hasExistingAttempt || userCredits > 0;
   };
 
   // Upload de imagem para o bucket
@@ -220,23 +291,54 @@ export const useSessionManager = () => {
     });
   };
 
+  // Salvar wishlist request
+  const saveWishlistRequest = async (name: string, email: string, phone: string, imageBabyUrl: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('wishlist_requests')
+        .insert({
+          session_id: sessionId,
+          name,
+          email,
+          phone,
+          image_baby_url: imageBabyUrl
+        });
+
+      if (error) {
+        console.error('Erro ao salvar wishlist:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Erro ao salvar wishlist:', error);
+      return false;
+    }
+  };
+
   // Resetar sessão (para casos específicos)
   const resetSession = () => {
     const newSessionId = uuidv4();
     localStorage.setItem('baby_session_id', newSessionId);
     setSessionId(newSessionId);
     setHasExistingAttempt(false);
+    setUserCredits(0);
   };
 
   return {
     sessionId,
     hasExistingAttempt,
+    userCredits,
     isLoading,
+    canGenerate,
+    consumeCredit,
     uploadImage,
     saveAttempt,
     callWebhook,
     startPollingForGeneratedImage,
+    saveWishlistRequest,
     resetSession,
-    checkExistingAttempt: () => checkExistingAttempt(sessionId)
+    checkExistingAttempt: () => checkExistingAttempt(sessionId),
+    checkUserCredits: () => checkUserCredits(sessionId)
   };
 };

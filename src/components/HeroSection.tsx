@@ -1,12 +1,13 @@
 
 import React from 'react';
-import { Sparkles, ArrowDown } from 'lucide-react';
+import { Sparkles, ArrowDown, CreditCard } from 'lucide-react';
 
 interface HeroSectionProps {
   hasExistingAttempt: boolean;
+  userCredits: number;
 }
 
-const HeroSection: React.FC<HeroSectionProps> = ({ hasExistingAttempt }) => {
+const HeroSection: React.FC<HeroSectionProps> = ({ hasExistingAttempt, userCredits }) => {
   return (
     <section className="relative py-20 overflow-hidden">
       {/* Background decorations */}
@@ -37,8 +38,15 @@ const HeroSection: React.FC<HeroSectionProps> = ({ hasExistingAttempt }) => {
 
             {hasExistingAttempt && (
               <div className="bg-accent/20 border border-accent/30 rounded-lg p-4 mb-6 max-w-md mx-auto">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <CreditCard className="w-4 h-4 text-primary" />
+                  <span className="font-semibold">Seus Créditos: {userCredits}</span>
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  Você já utilizou sua geração gratuita. Próximas gerações custam R$ 9,90.
+                  {userCredits > 0 
+                    ? `Você tem ${userCredits} crédito${userCredits > 1 ? 's' : ''} disponível${userCredits > 1 ? 'eis' : ''}.`
+                    : 'Adquira 3 créditos por R$ 10,00 para gerar mais imagens.'
+                  }
                 </p>
               </div>
             )}
